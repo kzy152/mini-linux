@@ -1,0 +1,14 @@
+# 构建中间产物与体积过大的素材，不入库
+.DS_Store
+build/
+iso/
+src/
+
+# QEMU 运行环境（1.1 GB，从 UTM dmg 提取；获取方式见 dist/README.md）
+tools/UTM.app/
+tools/qemu-launcher
+*.dmg
+*.tar.xz
+
+# 64 MiB 数据盘可用 tools/make-fat16.py 一键重建，不入库
+dist/mini-linux-data.img

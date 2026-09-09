@@ -1,0 +1,112 @@
+#!/bin/sh
+# Mini Linux init - runs as PID 1
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PS1='mini-linux:/#'
+
+# mount pseudo filesystems
+mount -t proc proc /proc 2>/dev/null
+mount -t sysfs sysfs /sys 2>/dev/null
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || mdev -s
+
+hostname mini-linux
+
+# ==== 诊断模式：内核参数带 diag 时打印环境信息 ====
+if grep -qw diag /proc/cmdline; then
+    echo "===== DIAG ====="
+    echo "-- /proc/filesystems --"
+    cat /proc/filesystems
+    echo "-- block devices (/dev) --"
+    ls /dev | grep -E '^(sd|vd|hd|loop|fb|xvd|sr)' || echo "none"
+    echo "-- busybox applets (mkfs/insmod/modprobe/blkid/losetup) --"
+    busybox | tr ' ' '\n' | grep -E '^(mkfs|insmod|modprobe|blkid|losetup|mdev|fdisk)' || echo "none"
+    echo "-- modloop bundled? --"
+    ls -lh /modloop.squashfs 2>/dev/null || echo "no modloop"
+    echo "-- /lib/modules --"
+    ls /lib/modules 2>/dev/null || echo "no /lib/modules"
+    echo "-- try mount modloop (loop + squashfs 是否内置) --"
+    mkdir -p /mnt/loop
+    if mount -t squashfs -o loop /modloop.squashfs /mnt/loop 2>&1; then
+        echo "modloop MOUNT OK"
+        ls /mnt/loop | head -8
+        umount /mnt/loop 2>/dev/null
+    else
+        echo "modloop mount FAILED (loop 或 squashfs 未内置)"
+    fi
+    echo "===== END DIAG ====="
+fi
+
+# ==== 数据盘模式：内核参数带 data 时，加载 virtio 磁盘驱动并挂载 /data ====
+# 注：Alpine initramfs 的精简 kmod 的 modprobe 名字解析在此环境失效（dep 存在仍报 not found），
+#     故一律用 insmod 按依赖顺序显式加载（已验证可行）。
+if grep -qw data /proc/cmdline; then
+    echo "[disk] loading virtio-blk modules (insmod chain) ..."
+    M=/lib/modules/$(uname -r)/kernel
+    echo "[disk] modules dir: $(ls -d /lib/modules/* 2>/dev/null)"
+    echo "[disk] block dir : $(ls /lib/modules/*/kernel/drivers/block/ 2>/dev/null)"
+    for ko in \
+        drivers/virtio/virtio.ko \
+        drivers/virtio/virtio_ring.ko \
+        drivers/virtio/virtio_pci_modern_dev.ko \
+        drivers/virtio/virtio_pci_legacy_dev.ko \
+        drivers/virtio/virtio_pci.ko \
+        drivers/block/virtio_blk.ko; do
+        echo "[disk]   insmod $ko"
+        /sbin/insmod $M/$ko 2>&1 && echo "[disk]   -> ok" || echo "[disk]   -> FAILED"
+    done
+    sleep 1
+    for i in 1 2 3 4 5; do [ -b /dev/vda ] && break; sleep 1; done
+    if [ -b /dev/vda ]; then
+        echo "[disk] /dev/vda found"
+        echo "[disk] loading vfat/nls (insmod chain) ..."
+        for ko in \
+            fs/nls/nls_cp437.ko \
+            fs/nls/nls_iso8859-1.ko \
+            fs/fat/fat.ko \
+            fs/fat/vfat.ko; do
+            /sbin/insmod $M/$ko 2>&1 && echo "[disk]   insmod $ko -> ok" || echo "[disk]   insmod $ko -> FAILED"
+        done
+        mkdir -p /data
+        if mount -t vfat -o codepage=437,iocharset=iso8859-1 /dev/vda /data 2>&1; then
+            echo "[disk] /dev/vda mounted at /data (persistent)"
+            upt=$(cut -d' ' -f1 /proc/uptime 2>/dev/null)
+            echo "boot#$(wc -l < /data/bootlog.txt 2>/dev/null) uptime=${upt}s" >> /data/bootlog.txt 2>/dev/null
+            echo "--- /data/bootlog.txt (persistent across reboots) ---"
+            cat /data/bootlog.txt 2>/dev/null | tail -5
+        else
+            echo "[disk] mount failed"
+        fi
+    else
+        echo "[disk] /dev/vda NOT found"
+    fi
+fi
+
+echo
+echo '=================================================='
+echo '  MINI LINUX BOOTED OK'
+echo "  kernel : $(uname -r) / $(uname -m)"
+echo "  host   : $(hostname)"
+echo '=================================================='
+echo
+
+# demo mode: print facts then auto poweroff (used for CI verification)
+if grep -qw autoshutdown /proc/cmdline; then
+    echo '[demo] /proc/mounts:'
+    head -4 /proc/mounts
+    echo
+    echo '[demo] rootfs usage:'
+    df -h /dev 2>/dev/null | tail -1
+    echo
+    echo '[demo] demo done, powering off ...'
+    sleep 1
+    poweroff -f
+fi
+
+echo 'Mini Linux shell. Type "poweroff -f" to shut down.'
+
+# 若串口未作为内核控制台（如光盘启动无 console= 参数），则额外在 ttyS0 上开一个 shell
+if [ -c /dev/ttyS0 ] && ! grep -qw ttyS0 /sys/class/tty/console/active 2>/dev/null; then
+    (setsid sh </dev/ttyS0 >/dev/ttyS0 2>&1 &)
+fi
+
+# /dev/console 自动指向主控制台（串口或 VGA），直接用 shell 取代 init
+exec sh </dev/console >/dev/console 2>&1
