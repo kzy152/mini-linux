@@ -18,6 +18,7 @@ KERNEL="$DIR/vmlinuz"
 INITRD="$DIR/initramfs.cpio.gz"
 INITRD_DATA="$DIR/initramfs-data.cpio.gz"
 DISK="$DIR/mini-linux-data.img"
+NETDEV="-device virtio-net-pci,netdev=mln0 -netdev user,id=mln0" # guest 内 10.0.2.15, apk 可用
 MEM="${ML_MEM:-256M}"          # default memory for all modes
 MEM_DATA="${ML_MEM_DATA:-512M}" # data mode gets more room
 
@@ -34,22 +35,26 @@ case "$1" in
     iso)
         [ -f "$ISO" ] || { echo "ERROR: $ISO missing" >&2; exit 1; }
         exec "$QEMU" -m "$MEM" -cdrom "$ISO" -boot d \
+            $NETDEV \
             -nographic -no-reboot -L "$PCBIOS" ;;
     vga)
         [ -f "$ISO_VGA" ] || { echo "ERROR: $ISO_VGA missing" >&2; exit 1; }
         exec "$QEMU" -m "$MEM" -cdrom "$ISO_VGA" -boot d \
+            $NETDEV \
             -no-reboot -L "$PCBIOS" ;;
     data)
         [ -f "$INITRD_DATA" ] || { echo "ERROR: $INITRD_DATA missing" >&2; exit 1; }
         [ -f "$DISK" ] || { echo "ERROR: $DISK missing" >&2; exit 1; }
         exec "$QEMU" -m "$MEM_DATA" -kernel "$KERNEL" -initrd "$INITRD_DATA" \
             -drive file="$DISK",format=raw,if=virtio \
+            $NETDEV \
             -nographic -no-reboot -L "$PCBIOS" \
             -append "console=ttyS0 data" ;;
     *)
         [ -f "$KERNEL" ] && [ -f "$INITRD" ] || { echo "ERROR: $KERNEL or $INITRD missing" >&2; exit 1; }
         exec "$QEMU" -m "$MEM" -kernel "$KERNEL" \
             -initrd "$INITRD" \
+            $NETDEV \
             -nographic -no-reboot -L "$PCBIOS" \
             -append "console=ttyS0" ;;
 esac

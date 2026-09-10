@@ -8,6 +8,10 @@ mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mdev -s
 
+# 基础目录（apk/包管理器等需要 /tmp /run /var）
+mkdir -p /tmp /run /var/log /media 2>/dev/null
+chmod 1777 /tmp 2>/dev/null
+
 hostname mini-linux
 
 # ==== 诊断模式：内核参数带 diag 时打印环境信息 ====
@@ -78,6 +82,37 @@ if grep -qw data /proc/cmdline; then
     else
         echo "[disk] /dev/vda NOT found"
     fi
+fi
+
+# ==== 网络：加载 virtio-net 并配置 QEMU user 网络（10.0.2.0/24，apk 包管理器可用）====
+# 说明：virtio_net 依赖链 = failover → net_failover → virtio_net（顺序不可颠倒）；
+#      data 分支已加载 virtio.ko/virtio_ring.ko，重复 insmod 报 File exists 属正常，忽略。
+mkdir -p /lib/apk/db
+echo "[net] loading virtio-net modules ..."
+M=/lib/modules/$(uname -r)/kernel
+for ko in \
+    drivers/virtio/virtio.ko \
+    drivers/virtio/virtio_ring.ko \
+    drivers/virtio/virtio_pci_modern_dev.ko \
+    drivers/virtio/virtio_pci_legacy_dev.ko \
+    drivers/virtio/virtio_pci.ko \
+    net/core/failover.ko \
+    drivers/net/net_failover.ko \
+    drivers/net/virtio_net.ko; do
+    if [ -e "$M/$ko" ]; then
+        /sbin/insmod "$M/$ko" >/dev/null 2>&1 && echo "[net]   + $ko" \
+            || echo "[net]   - $ko (dup/err)"
+    fi
+done
+if [ -d /sys/class/net/eth0 ]; then
+    ifconfig eth0 10.0.2.15 netmask 255.255.255.0 up 2>/dev/null
+    route add default gw 10.0.2.2 2>/dev/null
+    echo "[net] eth0 up: 10.0.2.15, gw 10.0.2.2, DNS 10.0.2.3"
+    echo "[net] apk: $(apk --version 2>/dev/null)"
+    # apk 数据库已预置（/etc/apk/world + /lib/apk/db）；首次使用先 apk update
+    echo "[net] apk ready: run 'apk update' then 'apk add <pkg>'"
+else
+    echo "[net] eth0 not found - network skipped"
 fi
 
 echo

@@ -7,6 +7,7 @@
 ## 特性
 
 - **真实可启动**：Linux 6.6.134-0-lts 内核 + busybox 1.36.1（静态链接） + 自写 `/init`，已通过内核直启、串口交互、ISO 光盘、VGA 截图四轮验证
+- **apk 软件包管理器**：内置 Alpine apk-tools 2.14.4，开机联网后 `apk update` / `apk add` 即可安装软件（main + community 两万多个包）
 - **持久数据盘**：64 MiB FAT16 虚拟磁盘以 virtio 接入，挂载到 `/data`，关机/重启后数据保留
 - **零安装依赖**：内置 QEMU 10.0.2 运行环境（Apple Silicon Mac，无 Homebrew 包可用场景下从 UTM 提取），无需 `brew install`
 - **多模式启动**：内核直启（串口）/ ISO 光盘（串口）/ ISO 光盘（VGA）/ 数据盘模式
@@ -24,6 +25,24 @@ ML_MEM=1G ./dist/boot.sh        # 任意模式可用环境变量覆盖内存
 ```
 
 看到 `MINI LINUX BOOTED OK` 与 `mini-linux:/#` 提示符即成功，输入 `poweroff -f` 关机。
+
+### 软件包管理器（apk）
+
+启动进入系统后（带网络的模式均支持：默认 `./dist/boot.sh`、`iso`、`vga`、`data`）：
+
+```sh
+apk update                 # 拉取软件仓库索引（首次使用必做）
+apk search bash            # 搜索软件包
+apk add bash               # 安装 bash（自动处理依赖）
+apk add nano curl          # 一次装多个
+apk del bash               # 卸载
+apk info                   # 查看已装包
+```
+
+- 仓库：Alpine v3.20 的 `main` + `community`（24171 个包可用），走 http + PGP 签名验证（篡改会被拒绝）
+- 网络：virtio 网卡自动配置（eth0 = 10.0.2.15，网关 10.0.2.2，DNS 10.0.2.3）
+- 注意：安装的软件装在内存根文件系统中，**重启后消失**（`/data` 数据盘的内容保留）；请把需要持久保存的配置/脚本写入 `/data`
+- 若下载偶尔抖动失败，重跑一次 `apk update` 即可
 
 ### 桌面 APP
 
