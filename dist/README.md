@@ -9,8 +9,8 @@
 | `mini-linux.iso` | 可启动光盘镜像（BIOS + ISOLINUX 6.04 引导，串口控制台，适合无头场景） | 12 MB |
 | `mini-linux-vga.iso` | 同上，但控制台走 VGA 图形界面 | 12 MB |
 | `vmlinuz` | Linux 6.6.134-0-lts 内核（x86_64 bzImage，Alpine 官方构建） | 10 MB |
-| `initramfs.cpio.gz` | 根文件系统：busybox 1.36.1 + 自写 `/init` + **apk 包管理器** + virtio 网络 | 4.6 MB |
-| `initramfs-data.cpio.gz` | 数据版根文件系统：含 apk + virtio 网络/vfat 模块，支持持久数据盘 | 4.6 MB |
+| `initramfs.cpio.gz` | 根文件系统：busybox 1.36.1 + 自写 `/init` + **apk 包管理器** + virtio 网络 + **预装 zsh** | 6.5 MB |
+| `initramfs-data.cpio.gz` | 数据版根文件系统：含 apk + virtio 网络/vfat 模块，支持持久数据盘 | 6.5 MB |
 | `mini-linux-data.img` | 64 MiB FAT16 持久数据盘（label MINILINUX，启动后挂载到 `/data`） | 64 MB |
 | `boot.sh` | 一键启动脚本（macOS，走本目录内置的 QEMU；`ML_MEM`/`ML_MEM_DATA` 可覆盖内存） | — |
 | `mini-linux.command` | 终端双击启动脚本（data 模式） | — |
@@ -52,7 +52,8 @@ ML_MEM=1G ./dist/boot.sh        # 任意模式可用环境变量覆盖内存
 - 内置 Alpine apk-tools 2.14.4（官方动态版 + libapk），仓库为 v3.20 `main` + `community`（http + PGP 签名验证）；
 - 开机后网络自动配置（virtio-net），首次使用先 `apk update`，再 `apk add <pkg>`；
 - 已验证：`apk update`（24171 包）→ `apk add bash`（自动装 7 个依赖）→ bash 正常运行；
-- 注意：软件装在内存根文件系统，重启丢失；持久数据请放 `/data`（data 模式）。
+- **预装 zsh 5.9**：开机直接 `zsh` 即可用（含 libncursesw / libcap2 / terminfo）；
+- 注意：其他 `apk add` 装的软件在内存根文件系统，重启丢失；持久数据请放 `/data`（data 模式）。
 ## 真实硬件 / 写入 U 盘
 ISO 是标准 El Torito BIOS 启动盘。刻录或 `dd` 写入 U 盘（**会清空目标盘，务必先确认设备号**）：
 ```bash
