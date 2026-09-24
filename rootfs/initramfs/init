@@ -123,6 +123,46 @@ echo "  host   : $(hostname)"
 echo '=================================================='
 echo
 
+
+# ==== GUI 桌面：内核参数带 gui 时自动启动 X + openbox（mini dark 主题）====
+if grep -qw gui /proc/cmdline; then
+    echo "[gui] starting X + openbox desktop ..."
+    D=/lib/modules/$(uname -r)/kernel/drivers
+    for ko in \
+        char/agp/agpgart \
+        gpu/drm/drm \
+        gpu/drm/drm_kms_helper \
+        gpu/drm/drm_shmem_helper \
+        gpu/drm/drm_display_helper \
+        gpu/drm/ttm/ttm \
+        gpu/drm/drm_ttm_helper \
+        gpu/drm/drm_vram_helper \
+        gpu/drm/tiny/bochs; do
+        [ -e "$D/$ko.ko" ] && insmod "$D/$ko.ko" >/dev/null 2>&1
+    done
+    # 输入子系统：evdev/mousedev/psmouse（QEMU PS/2 键鼠需要）
+    for ko in \
+        input/evdev \
+        input/mousedev \
+        input/mouse/psmouse; do
+        [ -e "$D/$ko.ko" ] && insmod "$D/$ko.ko" >/dev/null 2>&1
+    done
+    if [ -c /dev/fb0 ]; then
+    cd /usr/share/fonts/misc 2>/dev/null && { mkfontscale >/dev/null 2>&1; mkfontdir >/dev/null 2>&1; }
+    mkdir -p /dev/pts
+    mount -t devpts devpts /dev/pts >/dev/null 2>&1
+    Xorg :0 >/dev/null 2>&1 &
+    sleep 3
+    DISPLAY=:0 openbox >/dev/null 2>&1 &
+    sleep 2
+    DISPLAY=:0 xsetroot -solid "#20242A" >/dev/null 2>&1 &
+    DISPLAY=:0 xterm -bg white >/dev/null 2>&1 &
+    echo "[gui] desktop ready: X :0 + openbox (MiniDark)"
+    fi
+else
+    echo "[gui] fb0 not found - desktop skipped"
+fi
+
 # demo mode: print facts then auto poweroff (used for CI verification)
 if grep -qw autoshutdown /proc/cmdline; then
     echo '[demo] /proc/mounts:'

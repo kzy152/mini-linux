@@ -1,0 +1,64 @@
+! MiniDark - mini-linux mini dark theme
+! dark, minimal, high-contrast
+
+# Fonts
+*.font: shadow=n
+window.active.label.text.font:shadow=n
+window.inactive.label.text.font:shadow=n
+menu.items.font:shadow=n
+
+# Geometry
+border.width: 1
+padding.width: 3
+padding.height: 2
+window.handle.width: 2
+window.client.padding.width: 0
+menu.overlap: 1
+*.justify: center
+
+# Window title
+window.active.title.bg: flat
+window.active.title.bg.color: #2D343F
+window.active.label.text.color: #FFFFFF
+window.inactive.title.bg: flat
+window.inactive.title.bg.color: #20242A
+window.inactive.label.text.color: #8892A0
+
+# Borders
+window.active.border.color: #4C8BF5
+window.inactive.border.color: #11151A
+
+# Handle & grip
+window.*.handle.bg: flat
+window.*.handle.bg.color: #1B1F26
+window.*.grip.bg: flat
+window.*.grip.bg.color: #2D343F
+
+# Buttons
+window.button.bg: flat
+window.button.bg.color: #303845
+window.button.pressed.bg: flat
+window.button.pressed.bg.color: #4C8BF5
+window.button.hover.bg: flat
+window.button.hover.bg.color: #3A4552
+window.button.unpressed.bg: flat
+window.button.unpressed.bg.color: #303845
+window.button.hover.border.color: #4C8BF5
+window.button.pressed.border.color: #4C8BF5
+
+# Menu
+menu.title.bg: flat
+menu.title.bg.color: #2D343F
+menu.title.text.color: #FFFFFF
+menu.items.bg: flat
+menu.items.bg.color: #20242A
+menu.items.text.color: #D8DEE4
+menu.items.disabled.text.color: #55606E
+menu.items.active.bg: flat
+menu.items.active.bg.color: #4C8BF5
+menu.items.active.text.color: #FFFFFF
+menu.separator.color: #11151A
+
+# Root menu
+menu.border.color: #11151A
+menu.border.width: 1

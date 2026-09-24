@@ -6,12 +6,12 @@
 
 | 文件 | 说明 | 大小 |
 |---|---|---|
-| `mini-linux.iso` | 可启动光盘镜像（BIOS + ISOLINUX 6.04 引导，串口控制台，适合无头场景） | 12 MB |
-| `mini-linux-vga.iso` | 同上，但控制台走 VGA 图形界面 | 12 MB |
+| `mini-linux.iso` | 可启动光盘镜像（BIOS + ISOLINUX 引导，串口控制台，适合无头场景） | 18 MB |
+| `mini-linux-vga.iso` | 同上，但 **VGA 窗口 + openbox 桌面自动启动** | 18 MB |
 | `vmlinuz` | Linux 6.6.134-0-lts 内核（x86_64 bzImage，Alpine 官方构建） | 10 MB |
-| `initramfs.cpio.gz` | 根文件系统：busybox 1.36.1 + 自写 `/init` + **apk 包管理器** + virtio 网络 + **预装 zsh** | 6.5 MB |
-| `initramfs-data.cpio.gz` | 数据版根文件系统：含 apk + virtio 网络/vfat 模块，支持持久数据盘 | 6.5 MB |
-| `mini-linux-data.img` | 64 MiB FAT16 持久数据盘（label MINILINUX，启动后挂载到 `/data`） | 64 MB |
+| `initramfs.cpio.gz` | 根文件系统：busybox + 自写 `/init` + **apk + zsh + Xorg + openbox + MiniDark 主题** | 45 MB |
+| `initramfs-data.cpio.gz` | 数据版根文件系统（同上，数据盘模式用） | 45 MB |
+| `mini-linux-data.img` | 128 MiB FAT16 持久数据盘（label MINILINUX，启动后挂载到 `/data`） | 128 MB |
 | `boot.sh` | 一键启动脚本（macOS，走本目录内置的 QEMU；`ML_MEM`/`ML_MEM_DATA` 可覆盖内存） | — |
 | `mini-linux.command` | 终端双击启动脚本（data 模式） | — |
 | `README.md` | 本文档 | — |
@@ -20,17 +20,18 @@
 ## 启动方式
 
 ### 桌面 APP（最简单）
-桌面上有 **Mini Linux.app**：双击后自动打开终端窗口，以 512 MB 内存 + 持久数据盘（`/data`）启动。
-关机在系统内输入 `poweroff -f`。
+桌面上有 **Mini Linux.app**：双击后自动打开终端窗口，以 512 MB 内存 + 持久数据盘（`/data`）启动，
+并自动进入 **openbox 桌面**（VGA 窗口）。关机在系统内输入 `poweroff -f`。
 
 ### 本机（macOS）最快方式
 ```bash
 cd ~/mini-linux
-./dist/boot.sh          # 内核直启（串口，256M）
-./dist/boot.sh iso      # 光盘启动（串口，256M）
-./dist/boot.sh vga      # 光盘启动（VGA 窗口，256M）
-./dist/boot.sh data     # 持久数据盘模式（virtio /data，512M）
-ML_MEM=1G ./dist/boot.sh        # 任意模式可用环境变量覆盖内存
+./dist/boot.sh            # 内核直启（串口，256M）
+./dist/boot.sh iso        # 光盘启动（串口，256M）
+./dist/boot.sh vga        # 光盘启动（VGA 窗口 + openbox 桌面，256M）
+./dist/boot.sh data       # 持久数据盘模式（virtio /data，512M，串口）
+./dist/boot.sh data gui   # 持久数据盘 + VGA 窗口 + openbox 桌面（推荐桌面玩法）
+ML_MEM=1G ./dist/boot.sh  # 任意模式可用环境变量覆盖内存
 ```
 看到 `MINI LINUX BOOTED OK` 与 `mini-linux:/#` 提示符即成功，输入 `poweroff -f` 关机。
 
@@ -38,6 +39,13 @@ ML_MEM=1G ./dist/boot.sh        # 任意模式可用环境变量覆盖内存
 - 数据盘 `mini-linux-data.img`（FAT16，64 MiB）以 virtio 块设备接入，系统内挂载到 `/data`；
 - 写入 `/data` 的文件在关机/重启后保留；init 每次启动向 `/data/bootlog.txt` 追加一条记录；
 - 模块加载采用 insmod 显式按依赖顺序加载（Alpine 精简版 kmod 的 modprobe 名字解析在该环境不可用，已实测确认）。
+
+### GUI 桌面（v1.1.0 新增）
+- 内核参数带 `gui` 时自动启动 **Xorg (:0) + openbox** 桌面，并打开一个 xterm 终端；
+- 内置 **MiniDark 迷你暗色主题**（深蓝灰壁纸 `#20242A` + 蓝色强调 `#4C8BF5`，见 `rootfs/initramfs/usr/share/themes/MiniDark/`）；
+- 桌面右键弹出菜单：终端 / 重启 openbox / 退出到控制台 / 关机；
+- `./dist/boot.sh data gui` 或双击桌面 App 即进入桌面（VGA 窗口 + 持久 /data）；
+- 键盘：`Alt+Tab` 切换窗口、`Alt+F4` 关闭、`Alt+Space` 菜单、`Win+D` 显示桌面。
 
 > 说明：这台 Mac 的 Homebrew 已不再支持 macOS 13（无预编译包），无法 `brew install qemu`。
 > 项目内置了从 UTM 官方 dmg 提取的 QEMU 10.0.2 二进制，并用一个 15 行的 C 加载器
@@ -119,3 +127,9 @@ xorriso -as mkisofs -o mini-linux.iso -V MINILINUX \
 - 无网络、无磁盘驱动需求：根文件系统全部在内存 initramfs 中，无需任何块设备驱动即可启动。
 - `sh: can't access tty` 提示是 init 无控制终端所致，功能不受影响；需要完整 job control 可在
   内核参数加 `console=ttyS0` 并用 getty 替代。
+
+## 更新日志
+
+- **v1.1.0** — Openbox 桌面环境 + MiniDark 迷你暗色主题；`data gui` 桌面模式；修复 QEMU 无熵源导致 openbox 卡死（`-cpu max` + `random.trust_cpu=on`，crng 从 45s 降到 0.1s）；数据盘扩到 128 MiB
+- **v1.0.1** — 内置 apk 软件包管理器（Alpine 3.20）+ 预装 zsh
+- **v1.0.0** — 可启动 mini Linux（ISO + 桌面启动 App + GPL-3.0）

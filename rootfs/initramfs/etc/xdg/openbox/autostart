@@ -1,0 +1,2 @@
+# Mini Linux openbox autostart
+xsetroot -solid "#20242A" &

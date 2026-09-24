@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu xmlns="http://openbox.org/">
+  <menu id="root-menu" label="Mini Linux">
+    <item label="Terminal (xterm)">
+      <action name="Execute">
+        <command>xterm</command>
+      </action>
+    </item>
+    <separator/>
+    <item label="Restart Openbox">
+      <action name="Restart"/>
+    </item>
+    <item label="Exit to console">
+      <action name="Exit">
+        <prompt>no</prompt>
+      </action>
+    </item>
+    <item label="Power off">
+      <action name="Execute">
+        <command>poweroff -f</command>
+      </action>
+    </item>
+  </menu>
+</openbox_menu>

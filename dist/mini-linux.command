@@ -1,8 +1,8 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 clear
-echo "=== Mini Linux (persistent data disk /data) ==="
-echo "memory: 512M   (override: ML_MEM_DATA=1G ./boot.sh data)"
-echo "exit: type poweroff -f"
+echo "=== Mini Linux (desktop: X + openbox, persistent /data) ==="
+echo "memory: 512M   (override: ML_MEM_DATA=1G ./boot.sh data gui)"
+echo "exit: type poweroff -f in a terminal, or use the desktop menu"
 echo
-exec ./boot.sh data
+exec ./boot.sh data gui

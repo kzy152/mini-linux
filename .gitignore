@@ -9,6 +9,12 @@ tools/UTM.app/
 tools/qemu-launcher
 *.dmg
 *.tar.xz
-
 # 64 MiB 数据盘可用 tools/make-fat16.py 一键重建，不入库
 dist/mini-linux-data.img
+dist/initramfs-data.cpio.gz
+# UTM 打包目录（含 305MB initrd 副本）与大型中间产物，仅作为 Release 资产分发
+Mini Linux.utm/
+dist/initramfs-data.cpio.gz.bak
+dist/initramfs-test.cpio.gz
+dist/mods.cpio.gz
+dist/Mini-Linux.app.zip

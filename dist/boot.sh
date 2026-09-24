@@ -1,10 +1,11 @@
 #!/bin/bash
 # Mini Linux boot script (macOS)
 # Usage:
-#   ./boot.sh            boot kernel directly (serial console, recommended)
+#   ./boot.sh            boot kernel directly (serial console)
 #   ./boot.sh iso        boot from mini-linux.iso (serial console)
-#   ./boot.sh vga        boot from mini-linux-vga.iso (VGA window)
-#   ./boot.sh data       boot with persistent data disk (virtio, /data)
+#   ./boot.sh vga        boot from mini-linux-vga.iso (VGA window + openbox desktop)
+#   ./boot.sh data       boot with persistent data disk (virtio, /data, serial)
+#   ./boot.sh data gui   boot with data disk + VGA window + openbox desktop
 # Memory can be overridden:  ML_MEM=1G ./boot.sh data
 # Type "poweroff -f" inside the guest to shut down.
 
@@ -19,8 +20,12 @@ INITRD="$DIR/initramfs.cpio.gz"
 INITRD_DATA="$DIR/initramfs-data.cpio.gz"
 DISK="$DIR/mini-linux-data.img"
 NETDEV="-device virtio-net-pci,netdev=mln0 -netdev user,id=mln0" # guest 内 10.0.2.15, apk 可用
+# -cpu max + random.trust_cpu=on: QEMU 无熵源会导致 crng init 慢 45s,
+# openbox 启动时 getrandom() 会卡住; 这两个参数让 RDRAND 立即初始化熵池 (crng 0.1s)
+CPU="-cpu max"
+ENTROPY="random.trust_cpu=on"
 MEM="${ML_MEM:-256M}"          # default memory for all modes
-MEM_DATA="${ML_MEM_DATA:-512M}" # data mode gets more room
+MEM_DATA="${ML_MEM_DATA:-2G}"  # data mode + Firefox needs room (initramfs ~350M unpacked)
 
 if [ ! -x "$QEMU" ]; then
     echo "ERROR: qemu launcher not found at: $QEMU" >&2
@@ -34,27 +39,39 @@ fi
 case "$1" in
     iso)
         [ -f "$ISO" ] || { echo "ERROR: $ISO missing" >&2; exit 1; }
-        exec "$QEMU" -m "$MEM" -cdrom "$ISO" -boot d \
+        exec "$QEMU" -m "$MEM" $CPU -cdrom "$ISO" -boot d \
             $NETDEV \
-            -nographic -no-reboot -L "$PCBIOS" ;;
+            -nographic -no-reboot -L "$PCBIOS" \
+            -append "console=ttyS0 $ENTROPY" ;;
     vga)
         [ -f "$ISO_VGA" ] || { echo "ERROR: $ISO_VGA missing" >&2; exit 1; }
-        exec "$QEMU" -m "$MEM" -cdrom "$ISO_VGA" -boot d \
+        exec "$QEMU" -m "$MEM" $CPU -cdrom "$ISO_VGA" -boot d -vga std \
             $NETDEV \
-            -no-reboot -L "$PCBIOS" ;;
+            -no-reboot -L "$PCBIOS" \
+            -append "console=ttyS0 gui $ENTROPY" ;;
     data)
         [ -f "$INITRD_DATA" ] || { echo "ERROR: $INITRD_DATA missing" >&2; exit 1; }
         [ -f "$DISK" ] || { echo "ERROR: $DISK missing" >&2; exit 1; }
-        exec "$QEMU" -m "$MEM_DATA" -kernel "$KERNEL" -initrd "$INITRD_DATA" \
-            -drive file="$DISK",format=raw,if=virtio \
-            $NETDEV \
-            -nographic -no-reboot -L "$PCBIOS" \
-            -append "console=ttyS0 data" ;;
+        if [ "$2" = "gui" ]; then
+            # VGA window + persistent disk + openbox desktop
+            exec "$QEMU" -m "$MEM_DATA" $CPU -kernel "$KERNEL" -initrd "$INITRD_DATA" \
+                -drive file="$DISK",format=raw,if=virtio -vga std \
+                $NETDEV \
+                -no-reboot -L "$PCBIOS" \
+                -append "console=ttyS0 data gui $ENTROPY"
+        else
+            # serial console + persistent disk
+            exec "$QEMU" -m "$MEM_DATA" $CPU -kernel "$KERNEL" -initrd "$INITRD_DATA" \
+                -drive file="$DISK",format=raw,if=virtio \
+                $NETDEV \
+                -nographic -no-reboot -L "$PCBIOS" \
+                -append "console=ttyS0 data $ENTROPY"
+        fi ;;
     *)
         [ -f "$KERNEL" ] && [ -f "$INITRD" ] || { echo "ERROR: $KERNEL or $INITRD missing" >&2; exit 1; }
-        exec "$QEMU" -m "$MEM" -kernel "$KERNEL" \
+        exec "$QEMU" -m "$MEM" $CPU -kernel "$KERNEL" \
             -initrd "$INITRD" \
             $NETDEV \
             -nographic -no-reboot -L "$PCBIOS" \
-            -append "console=ttyS0" ;;
+            -append "console=ttyS0 $ENTROPY" ;;
 esac
